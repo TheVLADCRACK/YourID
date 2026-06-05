@@ -1,0 +1,7 @@
+# Cloudflare Pages configuration
+# Fichier: apps/web/_routes.json
+{
+  "version": 1,
+  "include": ["/*"],
+  "exclude": []
+}
