@@ -1,0 +1,524 @@
+// packages/database/schema.prisma
+// Your ID - Complete Database Schema
+
+generator client {
+  provider      = "prisma-client-js"
+  output        = "../generated/client"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ENUMS
+// ============================================
+
+enum UserRole {
+  ADMIN
+  SELLER
+  BUYER
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  PENDING_VERIFICATION
+}
+
+enum ProductType {
+  EBOOK
+  COURSE
+  AUDIO
+  TEMPLATE
+  SOFTWARE
+  SERVICE
+  SUBSCRIPTION
+  OTHER
+}
+
+enum ProductStatus {
+  DRAFT
+  PUBLISHED
+  PRIVATE
+  ARCHIVED
+}
+
+enum OrderStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+  DISPUTED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum WithdrawalStatus {
+  PENDING
+  APPROVED
+  PAID
+  REJECTED
+}
+
+enum NotificationType {
+  NEW_SALE
+  PURCHASE_COMPLETE
+  WITHDRAWAL_REQUEST
+  WITHDRAWAL_APPROVED
+  WITHDRAWAL_REJECTED
+  NEW_REVIEW
+  PRODUCT_APPROVED
+  ACCOUNT_VERIFIED
+}
+
+// ============================================
+// USERS & AUTH
+// ============================================
+
+model User {
+  id               String     @id @default(cuid())
+  email            String     @unique
+  password         String?
+  firstName        String
+  lastName         String
+  username         String     @unique
+  avatar           String?
+  bio              String?
+  role             UserRole   @default(SELLER)
+  status           UserStatus @default(PENDING_VERIFICATION)
+  emailVerified    Boolean    @default(false)
+  emailVerifiedAt  DateTime?
+  twoFactorEnabled Boolean    @default(false)
+  twoFactorSecret  String?
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+
+  // Relations
+  store         Store?
+  sessions      Session[]
+  auditLogs     AuditLog[]
+  notifications Notification[]
+  aiContents    AIContent[]
+  orders        Order[]        @relation("CustomerOrders")
+  reviews       Review[]
+
+  @@map("users")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  userId       String
+  refreshToken String   @unique
+  userAgent    String?
+  ipAddress    String?
+  deviceInfo   String?
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, expiresAt])
+  @@map("sessions")
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  entity    String
+  entityId  String?
+  metadata  Json?
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("audit_logs")
+}
+
+// ============================================
+// STORES
+// ============================================
+
+model Store {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  name         String
+  slug         String   @unique
+  description  String?
+  logo         String?
+  banner       String?
+  favicon      String?
+  primaryColor String   @default("#00A86B")
+  currency     String   @default("XOF")
+  country      String   @default("SN")
+  website      String?
+  twitter      String?
+  instagram    String?
+  youtube      String?
+  tiktok       String?
+  facebook     String?
+  customDomain String?  @unique
+  isVerified   Boolean  @default(false)
+  totalRevenue Decimal  @default(0) @db.Decimal(12, 2)
+  totalSales   Int      @default(0)
+  balance      Decimal  @default(0) @db.Decimal(12, 2)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  products    Product[]
+  orders      Order[]
+  customers   Customer[]
+  withdrawals Withdrawal[]
+  reviews     Review[]
+
+  @@map("stores")
+}
+
+// ============================================
+// PRODUCTS
+// ============================================
+
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  icon        String?
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  products Product[]
+
+  @@map("categories")
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  createdAt DateTime @default(now())
+
+  products ProductTag[]
+
+  @@map("tags")
+}
+
+model Product {
+  id            String        @id @default(cuid())
+  storeId       String
+  categoryId    String?
+  type          ProductType   @default(EBOOK)
+  status        ProductStatus @default(DRAFT)
+  title         String
+  slug          String        @unique
+  description   String?
+  shortDesc     String?
+  coverImage    String?
+  price         Decimal       @db.Decimal(10, 2)
+  comparePrice  Decimal?      @db.Decimal(10, 2)
+  currency      String        @default("XOF")
+  isFeatured    Boolean       @default(false)
+  isMarketplace Boolean       @default(true)
+  downloadLimit Int?
+  totalSales    Int           @default(0)
+  totalRevenue  Decimal       @default(0) @db.Decimal(12, 2)
+  rating        Decimal       @default(0) @db.Decimal(3, 2)
+  reviewCount   Int           @default(0)
+  viewCount     Int           @default(0)
+  metadata      Json?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  store      Store         @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  category   Category?     @relation(fields: [categoryId], references: [id])
+  tags       ProductTag[]
+  files      ProductFile[]
+  orderItems OrderItem[]
+  reviews    Review[]
+  downloads  DownloadLog[]
+
+  @@index([storeId, status])
+  @@index([status, isMarketplace])
+  @@index([totalSales])
+  @@map("products")
+}
+
+model ProductTag {
+  productId String
+  tagId     String
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  tag     Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([productId, tagId])
+  @@map("product_tags")
+}
+
+model ProductFile {
+  id        String   @id @default(cuid())
+  productId String
+  name      String
+  fileName  String
+  fileUrl   String
+  fileKey   String
+  fileSize  Int
+  mimeType  String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  product   Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  downloads DownloadLog[]
+
+  @@map("product_files")
+}
+
+model DownloadLog {
+  id            String    @id @default(cuid())
+  productId     String
+  productFileId String
+  orderId       String?
+  ipAddress     String?
+  userAgent     String?
+  downloadedAt  DateTime  @default(now())
+  expiresAt     DateTime?
+  token         String    @unique
+  isUsed        Boolean   @default(false)
+
+  product     Product     @relation(fields: [productId], references: [id])
+  productFile ProductFile @relation(fields: [productFileId], references: [id])
+  order       Order?      @relation(fields: [orderId], references: [id])
+
+  @@map("download_logs")
+}
+
+// ============================================
+// ORDERS & PAYMENTS
+// ============================================
+
+model Customer {
+  id         String   @id @default(cuid())
+  storeId    String
+  userId     String?
+  email      String
+  firstName  String
+  lastName   String
+  phone      String?
+  country    String?
+  totalSpent Decimal  @default(0) @db.Decimal(12, 2)
+  orderCount Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  store  Store   @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  orders Order[]
+
+  @@unique([storeId, email])
+  @@map("customers")
+}
+
+model Order {
+  id            String      @id @default(cuid())
+  storeId       String
+  customerId    String?
+  userId        String?
+  orderNumber   String      @unique
+  status        OrderStatus @default(PENDING)
+  subtotal      Decimal     @db.Decimal(10, 2)
+  platformFee   Decimal     @db.Decimal(10, 2)
+  sellerRevenue Decimal     @db.Decimal(10, 2)
+  total         Decimal     @db.Decimal(10, 2)
+  currency      String      @default("XOF")
+  customerEmail String
+  customerName  String
+  paymentMethod String?
+  paymentRef    String?
+  notes         String?
+  metadata      Json?
+  completedAt   DateTime?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  store        Store         @relation(fields: [storeId], references: [id])
+  customer     Customer?     @relation(fields: [customerId], references: [id])
+  user         User?         @relation("CustomerOrders", fields: [userId], references: [id])
+  items        OrderItem[]
+  transaction  Transaction?
+  downloadLogs DownloadLog[]
+
+  @@index([storeId, status, createdAt])
+  @@index([customerEmail])
+  @@index([orderNumber])
+  @@map("orders")
+}
+
+model OrderItem {
+  id        String  @id @default(cuid())
+  orderId   String
+  productId String
+  title     String
+  price     Decimal @db.Decimal(10, 2)
+  quantity  Int     @default(1)
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@map("order_items")
+}
+
+model Transaction {
+  id           String        @id @default(cuid())
+  orderId      String        @unique
+  amount       Decimal       @db.Decimal(10, 2)
+  currency     String
+  status       PaymentStatus @default(PENDING)
+  provider     String
+  providerRef  String?
+  providerData Json?
+  processedAt  DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id])
+
+  @@map("transactions")
+}
+
+// ============================================
+// WITHDRAWALS
+// ============================================
+
+model Withdrawal {
+  id          String           @id @default(cuid())
+  storeId     String
+  amount      Decimal          @db.Decimal(10, 2)
+  currency    String
+  status      WithdrawalStatus @default(PENDING)
+  method      String
+  accountInfo Json
+  notes       String?
+  adminNote   String?
+  processedAt DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId, status])
+  @@index([status])
+  @@map("withdrawals")
+}
+
+// ============================================
+// REVIEWS
+// ============================================
+
+model Review {
+  id         String   @id @default(cuid())
+  storeId    String
+  productId  String
+  userId     String?
+  rating     Int
+  title      String?
+  comment    String?
+  isVerified Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  store   Store   @relation(fields: [storeId], references: [id])
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id])
+
+  @@map("reviews")
+}
+
+// ============================================
+// ANALYTICS
+// ============================================
+
+model AnalyticsEvent {
+  id         String   @id @default(cuid())
+  storeId    String?
+  productId  String?
+  event      String
+  properties Json?
+  ipAddress  String?
+  userAgent  String?
+  country    String?
+  referrer   String?
+  sessionId  String?
+  createdAt  DateTime @default(now())
+
+  @@index([storeId, event, createdAt])
+  @@index([productId, event])
+  @@map("analytics_events")
+}
+
+// ============================================
+// NOTIFICATIONS
+// ============================================
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  data      Json?
+  isRead    Boolean          @default(false)
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+// ============================================
+// EMAIL LOGS
+// ============================================
+
+model EmailLog {
+  id          String   @id @default(cuid())
+  to          String
+  subject     String
+  template    String
+  status      String   @default("sent")
+  error       String?
+  providerRef String?
+  createdAt   DateTime @default(now())
+
+  @@map("email_logs")
+}
+
+// ============================================
+// AI CONTENT
+// ============================================
+
+model AIContent {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String
+  prompt    String
+  result    String   @db.Text
+  model     String
+  tokens    Int?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("ai_contents")
+}

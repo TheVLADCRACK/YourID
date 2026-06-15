@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# dev-setup.sh — Prépare et déploie l'application Your ID sur un VPS Docker
+# deploy.sh — Déploiement VPS Docker pour l'application Your ID
 
 set -euo pipefail
 
@@ -43,20 +43,10 @@ require_command() {
   fi
 }
 
-usage() {
-  cat <<EOF
-Usage: ./dev-setup.sh [options]
-
-Options:
-  --skip-seed      Ne pas exécuter la phase de seed après la migration
-  --help           Afficher cette aide
-EOF
-}
-
 load_env_var() {
   local name="$1"
   local line
-  line=$(grep -E "^${name}=" .env || true)
+  line=$(grep -E "^${name}=" "$ENV_FILE" || true)
   if [ -z "$line" ]; then
     echo ""
     return
@@ -67,12 +57,34 @@ load_env_var() {
   echo "$line"
 }
 
+usage() {
+  cat <<EOF
+Usage: ./deploy.sh [options]
+
+Options:
+  --env-file PATH   Fichier .env à utiliser (par défaut .env)
+  --skip-seed       Ne pas exécuter le seed de la base de données
+  --seed            Exécuter le seed après l'application du schéma
+  --help            Afficher cette aide
+EOF
+}
+
+ENV_FILE=".env"
 SKIP_SEED=false
+RUN_SEED=false
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
+    --env-file)
+      shift
+      [ "$#" -gt 0 ] || error "❌ L'argument --env-file nécessite un chemin."
+      ENV_FILE="$1"
+      ;;
     --skip-seed)
       SKIP_SEED=true
+      ;;
+    --seed)
+      RUN_SEED=true
       ;;
     --help)
       usage
@@ -85,10 +97,6 @@ while [ "$#" -gt 0 ]; do
   shift
 done
 
-info "=============================================="
-info "  Your ID — Setup de déploiement Docker VPS  "
-info "=============================================="
-
 require_command docker
 
 if command -v docker-compose >/dev/null 2>&1; then
@@ -96,49 +104,46 @@ if command -v docker-compose >/dev/null 2>&1; then
 elif docker compose version >/dev/null 2>&1; then
   COMPOSE_CMD='docker compose'
 else
-  error "❌ Docker Compose n'est pas disponible. Installez le plugin docker compose ou docker-compose."
+  error "❌ Docker Compose n'est pas disponible. Installez docker-compose ou le plugin docker compose."
 fi
 
-if ! docker version >/dev/null 2>&1; then
-  error "❌ Docker ne tourne pas. Démarrez le service Docker avant de lancer ce script."
+if [ ! -f "$ENV_FILE" ]; then
+  error "❌ Fichier d'environnement introuvable : $ENV_FILE"
 fi
 
-info "→ Vérification de Docker... OK"
+info "=============================================="
+info "  Your ID — Déploiement Docker VPS           "
+info "=============================================="
 
-if [ ! -f .env ]; then
-  warn "⚠️  Fichier .env introuvable. Création depuis .env.example."
-  cp .env.example .env
-  warn "⚠️  Vérifiez immédiatement .env et remplacez les valeurs par vos secrets de production."
-fi
+info "→ Utilisation du fichier d'environnement : $ENV_FILE"
 
-if [ ! -f .env ]; then
-  error "❌ Fichier .env manquant. Créez-le à partir de .env.example."
-fi
+export COMPOSE_FILE="docker-compose.yml"
+export ENV_FILE
 
 DATABASE_URL="$(load_env_var DATABASE_URL)"
 POSTGRES_PASSWORD="$(load_env_var POSTGRES_PASSWORD)"
 REDIS_PASSWORD="$(load_env_var REDIS_PASSWORD)"
 
 if [ -z "$DATABASE_URL" ]; then
-  error "❌ DATABASE_URL non défini dans .env. Mettez à jour .env avant de réexécuter le script."
+  error "❌ DATABASE_URL non défini dans $ENV_FILE."
 fi
 
 if [ -z "$POSTGRES_PASSWORD" ]; then
-  error "❌ POSTGRES_PASSWORD non défini dans .env. Mettez à jour .env avant de réexécuter le script."
+  error "❌ POSTGRES_PASSWORD non défini dans $ENV_FILE."
 fi
 
 if [ -z "$REDIS_PASSWORD" ]; then
-  error "❌ REDIS_PASSWORD non défini dans .env. Mettez à jour .env avant de réexécuter le script."
+  error "❌ REDIS_PASSWORD non défini dans $ENV_FILE."
 fi
 
-info "→ Variables d'environnement vérifiées"
+info "→ Variables d'environnement de base vérifiées"
 
 info "\n→ Construction des images Docker..."
-$COMPOSE_CMD build --pull api web
+$COMPOSE_CMD --env-file "$ENV_FILE" build --pull api web
 success "✅ Images Docker construites"
 
-info "\n→ Démarrage de la base de données et de Redis..."
-$COMPOSE_CMD up -d postgres redis
+info "\n→ Démarrage de PostgreSQL et Redis..."
+$COMPOSE_CMD --env-file "$ENV_FILE" up -d postgres redis
 
 wait_for_health() {
   local service="$1"
@@ -146,9 +151,9 @@ wait_for_health() {
   local count=0
 
   info "   Vérification de l'état de $service..."
-  until [ "$count" -ge $retries ]; do
+  until [ "$count" -ge "$retries" ]; do
     local container_id
-    container_id=$($COMPOSE_CMD ps -q "$service" 2>/dev/null || true)
+    container_id=$($COMPOSE_CMD --env-file "$ENV_FILE" ps -q "$service" 2>/dev/null || true)
     if [ -n "$container_id" ]; then
       if docker inspect --format '{{json .State.Health.Status}}' "$container_id" 2>/dev/null | grep -q healthy; then
         success "   $service est healthy"
@@ -165,27 +170,26 @@ wait_for_health postgres
 wait_for_health redis
 
 info "\n→ Démarrage des services API et Web..."
-$COMPOSE_CMD up -d api web
+$COMPOSE_CMD --env-file "$ENV_FILE" up -d api web
 success "✅ Services API et Web démarrés"
 
-info "\n→ Application du schéma Prisma dans la base de données..."
-$COMPOSE_CMD run --rm --entrypoint sh api -c 'npx prisma@6.1.0 db push --schema=./prisma/schema.prisma --accept-data-loss'
+info "\n→ Application du schéma Prisma..."
+$COMPOSE_CMD --env-file "$ENV_FILE" run --rm --entrypoint sh api -c 'npx prisma@6.1.0 db push --schema=./prisma/schema.prisma --accept-data-loss'
 success "✅ Schéma Prisma appliqué"
 
 if [ "$SKIP_SEED" = true ]; then
   warn "⚠️  Seed désactivé (--skip-seed)."
-elif [ -f "packages/database/seed.ts" ]; then
+elif [ "$RUN_SEED" = true ]; then
   info "\n→ Exécution du seed de la base de données..."
   docker run --rm -v "$SCRIPT_DIR":/workspace -w /workspace/packages/database -e DATABASE_URL="$DATABASE_URL" node:20-alpine sh -lc "apk add --no-cache python3 make g++ openssl-dev libc6-compat && npm install --legacy-peer-deps --silent && npx prisma@6.1.0 generate --schema=./schema.prisma && npm run db:seed"
   success "✅ Seed exécuté avec succès"
 else
-  warn "⚠️  Aucun fichier packages/database/seed.ts trouvé. Le seed est ignoré."
+  warn "⚠️  Seed non exécuté. Utilisez --seed si vous voulez l'initialiser."
 fi
 
 success "\n=============================================="
-success "✅ Déploiement Docker complet terminé"
-info "Accédez à l'application depuis les ports exposés :"
+success "✅ Déploiement Docker VPS terminé"
+info "Accédez à l'application :"
 info "   Frontend : http://localhost:3000"
 info "   API      : http://localhost:4000"
-info "   Swagger  : http://localhost:4000/api/docs"
-success "=============================================="
+info "=============================================="
