@@ -1,4 +1,6 @@
 
+'use client';
+
 function TrustIcon({ type }: { type: string }) {
   const icons: Record<string, React.ReactNode> = {
     lock: <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><rect x="2" y="6" width="10" height="7" rx="1.5" stroke="#00A86B" strokeWidth="1.2"/><path d="M4.5 6V4.5a2.5 2.5 0 0 1 5 0V6" stroke="#00A86B" strokeWidth="1.2" strokeLinecap="round"/><circle cx="7" cy="9.5" r=".8" fill="#00A86B"/></svg>,
@@ -9,7 +11,6 @@ function TrustIcon({ type }: { type: string }) {
   return <span className="flex-shrink-0">{icons[type]}</span>;
 }
 
-'use client';
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useMutation } from '@tanstack/react-query';
@@ -24,7 +25,7 @@ import { PAYMENT_METHODS } from '@/types/constants';
 // MODIFICATION 8: richer payment simulation states
 type PaymentStep = 'info' | 'payment' | 'processing' | 'success';
 
-export default function CheckoutPage({ params }: { params: { productId: string } }) {
+export default function CheckoutPage({ params }: any) {
   const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);

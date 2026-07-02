@@ -93,4 +93,24 @@ export class FilesService {
     if (/icloud\.com/.test(url)) return 'icloud';
     return 'url';
   }
+
+  /**
+   * Resolve a download token to a URL and file name.
+   * Token may be a product id or a base64-encoded URL.
+   */
+  async getSignedDownloadUrl(token: string): Promise<{ url: string; fileName?: string }> {
+    // base64-encoded URL (simple client-side token)
+    try {
+      const decoded = Buffer.from(token, 'base64').toString('utf8');
+      if (decoded.startsWith('http')) return { url: decoded, fileName: undefined };
+    } catch {}
+
+    // Lookup product by id
+    try {
+      const row = this.db.get('SELECT contentUrl, title FROM products WHERE id = ?', [token]);
+      if (row && row.contentUrl) return { url: row.contentUrl, fileName: row.title };
+    } catch {}
+
+    throw new NotFoundException('Fichier introuvable');
+  }
 }

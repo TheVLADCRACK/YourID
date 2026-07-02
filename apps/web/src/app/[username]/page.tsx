@@ -51,8 +51,9 @@ function ProductTypeIcon({ type }: { type: string }) {
   );
 }
 
-export default async function StorePage({ params }: { params: { username: string } }) {
-  const username = params.username.replace('%40','').replace('@','');
+export default async function StorePage({ params }: any) {
+  const resolvedParams = await params;
+  const username = resolvedParams.username.replace('%40','').replace('@','');
   const store = await getStore(username);
   if (!store) notFound();
 

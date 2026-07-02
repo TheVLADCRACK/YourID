@@ -67,7 +67,7 @@ export function CreateProductModal({ onClose }: { onClose: () => void }) {
   });
 
   const { register, handleSubmit, watch, setValue, getValues, formState: { errors } } = useForm({
-    defaultValues: { type:'EBOOK', status:'DRAFT', isMarketplace:true, title:'', description:'', price:0, categoryId:'' },
+    defaultValues: { type:'EBOOK', status:'DRAFT', isMarketplace:true, title:'', description:'', price:0, categoryId:'', contentNote: '' },
   });
 
   const platform = detectPlatform(contentUrl);

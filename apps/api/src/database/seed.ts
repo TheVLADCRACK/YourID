@@ -11,7 +11,7 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import * as argon2 from 'argon2';
-import BetterSqlite3 from 'better-sqlite3';
+import BetterSqlite3 = require('better-sqlite3');
 import * as crypto from 'crypto';
 
 const id = () => `${Date.now().toString(36)}${crypto.randomBytes(8).toString('hex')}`;

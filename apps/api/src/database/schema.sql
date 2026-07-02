@@ -27,9 +27,21 @@ CREATE TABLE IF NOT EXISTS sessions (
   ipAddress     TEXT,
   userAgent     TEXT,
   expiresAt     TEXT NOT NULL,
-  createdAt     TEXT NOT NULL DEFAULT (datetime('now'))
+  createdAt     TEXT NOT NULL DEFAULT (datetime('now')),
+  updatedAt     TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions(userId, expiresAt);
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id          TEXT PRIMARY KEY,
+  userId      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  action      TEXT NOT NULL,
+  entity      TEXT,
+  entityId    TEXT,
+  ipAddress   TEXT,
+  userAgent   TEXT,
+  createdAt   TEXT NOT NULL DEFAULT (datetime('now'))
+);
 
 CREATE TABLE IF NOT EXISTS password_reset_tokens (
   id        TEXT PRIMARY KEY,

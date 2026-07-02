@@ -1,5 +1,5 @@
 import { Injectable, OnModuleInit, OnModuleDestroy, Logger } from '@nestjs/common';
-import BetterSqlite3 from 'better-sqlite3';
+import BetterSqlite3 = require('better-sqlite3');
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
@@ -52,6 +52,30 @@ export class DatabaseService implements OnModuleInit, OnModuleDestroy {
     if (!schemaPath) throw new Error('schema.sql introuvable — vérifiez la config nest-cli assets');
     const sql = fs.readFileSync(schemaPath, 'utf-8');
     this.conn.exec(sql);
+    this.applySchemaFixes();
+  }
+
+  private applySchemaFixes() {
+    // Ensure audit_logs table exists
+    try {
+      const auditExists = this.conn.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'audit_logs'").get();
+      if (!auditExists) {
+        this.conn.exec(`
+          CREATE TABLE audit_logs (
+            id          TEXT PRIMARY KEY,
+            userId      TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            action      TEXT NOT NULL,
+            entity      TEXT,
+            entityId    TEXT,
+            ipAddress   TEXT,
+            userAgent   TEXT,
+            createdAt   TEXT NOT NULL DEFAULT (datetime('now'))
+          )
+        `);
+      }
+    } catch (e) {
+      // Table might already exist, ignore
+    }
   }
 
   // ─── Generic helpers ────────────────────────────────────────────────────

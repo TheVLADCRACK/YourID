@@ -2,6 +2,7 @@
   "name": "yourid",
   "version": "1.0.0",
   "private": true,
+  "packageManager": "npm@11.16.0",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -14,11 +15,12 @@
     "db:seed": "cd apps/api && npx ts-node src/database/seed.ts"
   },
   "devDependencies": {
-    "turbo": "^2.3.3",
-    "typescript": "^5.7.2",
     "@types/node": "^22.10.2",
+    "eslint": "^9.17.0",
     "prettier": "^3.4.2",
-    "eslint": "^9.17.0"
+    "tailwindcss-animate": "^1.0.7",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2"
   },
   "engines": {
     "node": ">=20.0.0",

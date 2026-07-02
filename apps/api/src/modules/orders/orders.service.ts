@@ -125,4 +125,17 @@ export class OrdersService {
     }
     return order;
   }
+
+  /** Return downloadable links for items of a completed order */
+  async getDownloadLinks(orderId: string) {
+    const order = this.db.get('SELECT * FROM orders WHERE id = ?', [orderId]);
+    if (!order) throw new NotFoundException('Commande introuvable');
+    if (order.status !== 'COMPLETED') return [];
+    const items = this.db.all('SELECT productId FROM order_items WHERE orderId = ?', [orderId]);
+    const links = items.map((it: any) => {
+      const p = this.db.get('SELECT contentUrl, title FROM products WHERE id = ?', [it.productId]);
+      return { productId: it.productId, url: p?.contentUrl ?? null, fileName: p?.title ?? null };
+    });
+    return links;
+  }
 }

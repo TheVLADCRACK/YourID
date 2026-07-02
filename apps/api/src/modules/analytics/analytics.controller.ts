@@ -45,8 +45,7 @@ export class AnalyticsController {
       userAgent: req.headers['user-agent'],
     });
   }
-}
-
+  
   @Get('global')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
@@ -54,3 +53,4 @@ export class AnalyticsController {
   getGlobal() {
     return this.analyticsService.getGlobalStats();
   }
+}

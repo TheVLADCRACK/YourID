@@ -19,8 +19,8 @@ export default function SettingsPage() {
   const { register: regProfile, handleSubmit: hsProfile, reset: resetProfile, formState: { isSubmitting: si2 } } = useForm();
 
   // Image previews
-  const [logoPreview, setLogoPreview] = useState<string | null>(user?.store?.logo ?? null);
-  const [bannerPreview, setBannerPreview] = useState<string | null>(user?.store?.banner ?? null);
+  const [logoPreview, setLogoPreview] = useState<string | null>((user as any)?.store?.logo ?? null);
+  const [bannerPreview, setBannerPreview] = useState<string | null>((user as any)?.store?.banner ?? null);
   const logoRef = useRef<HTMLInputElement>(null);
   const bannerRef = useRef<HTMLInputElement>(null);
 
@@ -75,7 +75,7 @@ export default function SettingsPage() {
       setLogoPreview(url);
       toast.success('Logo mis à jour !', { id: toastId });
     } catch {
-      setLogoPreview(user?.store?.logo ?? null);
+      setLogoPreview((user as any)?.store?.logo ?? null);
       toast.error('Échec de l\'upload', { id: toastId });
     }
   };
@@ -91,7 +91,7 @@ export default function SettingsPage() {
       setBannerPreview(url);
       toast.success('Bannière mise à jour !', { id: toastId });
     } catch {
-      setBannerPreview(user?.store?.banner ?? null);
+      setBannerPreview((user as any)?.store?.banner ?? null);
       toast.error('Échec de l\'upload', { id: toastId });
     }
   };

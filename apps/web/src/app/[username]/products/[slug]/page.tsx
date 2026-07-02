@@ -28,11 +28,7 @@ async function getProduct(slug: string) {
   } catch { return null; }
 }
 
-export async function generateMetadata({
-  params,
-}: {
-  params: { username: string; slug: string };
-}) {
+export async function generateMetadata({ params }: any) {
   const p = await getProduct(params.slug);
   if (!p) return { title: 'Produit introuvable' };
   return {
@@ -46,11 +42,7 @@ export async function generateMetadata({
   };
 }
 
-export default async function ProductPage({
-  params,
-}: {
-  params: { username: string; slug: string };
-}) {
+export default async function ProductPage({ params }: any) {
   const product = await getProduct(params.slug);
   if (!product) notFound();
 
