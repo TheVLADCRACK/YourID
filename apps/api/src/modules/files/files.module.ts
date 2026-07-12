@@ -10,7 +10,7 @@ import { FilesService } from './files.service';
     ConfigModule,
     // Sert les images uploadées en statique sur /uploads/*
     ServeStaticModule.forRoot({
-      rootPath: join(process.cwd(), 'uploads'),
+      rootPath: process.env.UPLOAD_DIR ? join(process.env.UPLOAD_DIR) : join(process.cwd(), 'uploads'),
       serveRoot: '/uploads',
     }),
   ],

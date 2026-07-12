@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { DatabaseModule } from './database/database.module';
+import * as path from 'path';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
 import { StoresModule } from './modules/stores/stores.module';
@@ -22,7 +23,17 @@ import { HealthController } from './health.controller';
 @Module({
   controllers: [HealthController],
   imports: [
-    ConfigModule.forRoot({ isGlobal: true, envFilePath: ['.env.local', '.env'] }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: [
+        path.resolve(process.cwd(), '.env'),
+        path.resolve(process.cwd(), '.env.local'),
+        path.resolve(process.cwd(), '..', '.env'),
+        path.resolve(process.cwd(), '..', '.env.local'),
+        path.resolve(process.cwd(), '..', '..', '.env'),
+        path.resolve(process.cwd(), '..', '..', '.env.local'),
+      ],
+    }),
     ThrottlerModule.forRoot([
       { name: 'short', ttl: 1000, limit: 10 },
       { name: 'medium', ttl: 10000, limit: 100 },

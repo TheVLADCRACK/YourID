@@ -70,9 +70,9 @@ async function bootstrap() {
     logger.log(`📚 Swagger: http://localhost:${port}/api/docs`);
   }
 
-  await app.listen(port);
+  await app.listen(port, '0.0.0.0');
   logger.log(`🚀 API running on port ${port} [${nodeEnv}]`);
-  logger.log(`🌍 CORS allowed: ${appUrl}`);
+  logger.log(`🌍 API accessible on 0.0.0.0 and CORS allowed for ${appUrl}`);
 }
 
 bootstrap();
